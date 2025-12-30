@@ -54,12 +54,11 @@ echo "============================================"
 echo ""
 print_warning "This script will:"
 echo "  1. Update system packages"
-echo "  2. Set up static IP (optional)"
-echo "  3. Configure second drive for Docker storage"
-echo "  4. Install NVIDIA drivers (570)"
-echo "  5. Install Docker and NVIDIA Container Toolkit"
-echo "  6. Install CasaOS"
-echo "  7. Configure everything automatically"
+echo "  2. Configure second drive for Docker storage"
+echo "  3. Install NVIDIA drivers (570)"
+echo "  4. Install Docker and NVIDIA Container Toolkit"
+echo "  5. Install CasaOS"
+echo "  6. Configure everything automatically"
 echo ""
 
 if ! confirm "Do you want to continue?"; then
@@ -217,11 +216,19 @@ if [ "$NVIDIA_INSTALLED" = true ]; then
     print_status "Installing NVIDIA Container Toolkit..."
     
     distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-    curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | apt-key add -
-    curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | tee /etc/apt/sources.list.d/nvidia-docker.list
+    
+    # Use the modern GPG key method instead of deprecated apt-key
+    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+    
+    curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
+        sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+        tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
     
     apt update
     apt install -y nvidia-container-toolkit
+    
+    # Configure Docker to use NVIDIA runtime
+    nvidia-ctk runtime configure --runtime=docker
     systemctl restart docker
     
     print_success "NVIDIA Container Toolkit installed"
